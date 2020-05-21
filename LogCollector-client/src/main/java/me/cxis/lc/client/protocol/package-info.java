@@ -1,4 +1,4 @@
-package me.cxis.lc.protocol;
+package me.cxis.lc.client.protocol;
 /*
 * 协议设计
 * 协议包含：消息头和消息体

@@ -1,19 +1,20 @@
-package me.cxis.lc;
+package me.cxis.lc.client;
 
-import me.cxis.lc.thread.LogCollectorThreadFactory;
+import me.cxis.lc.client.thread.LogCollectorThreadFactory;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.DataOutputStream;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import static me.cxis.lc.constants.Constants.LOCAL_AGENT_HOST;
-import static me.cxis.lc.constants.Constants.LOCAL_AGENT_PORT;
+import static me.cxis.lc.client.constants.Constants.LOCAL_AGENT_HOST;
+import static me.cxis.lc.client.constants.Constants.LOCAL_AGENT_PORT;
 
 public class LogCollector {
 
@@ -76,7 +77,13 @@ public class LogCollector {
             try {
                 socket = new Socket(LOCAL_AGENT_HOST, LOCAL_AGENT_PORT);
                 dataOutputStream = new DataOutputStream(socket.getOutputStream());
-                // TODO 发送hello信息给LocalAgent
+                // 发送hello信息给LocalAgent
+                dataOutputStream.writeByte(0);
+                dataOutputStream.writeByte(1);
+                byte[] data = appName.getBytes(StandardCharsets.UTF_8);
+                dataOutputStream.writeInt(data.length);
+                dataOutputStream.write(data);
+                dataOutputStream.flush();
             } catch (Exception e) {
                 LOGGER.error("Connect to local agent error, cause: ", e);
                 try {
