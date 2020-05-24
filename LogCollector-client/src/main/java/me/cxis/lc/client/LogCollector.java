@@ -1,5 +1,7 @@
 package me.cxis.lc.client;
 
+import me.cxis.lc.client.jmx.MBeanRegister;
+import me.cxis.lc.client.jmx.jvm.JVMRuntime;
 import me.cxis.lc.client.thread.LogCollectorThreadFactory;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -24,8 +26,13 @@ public class LogCollector {
 
     private static String appName;
 
+    private final static String MBEAN_PREFIX = "me.cxis.lc.";
+
     private ScheduledExecutorService connectToLocalAgentExecutor = Executors.newScheduledThreadPool(1, new LogCollectorThreadFactory("LogCollector-ConnectToLocalAgent"));
     private ScheduledFuture<?> connectToLocalAgentFuture;
+
+    private ScheduledExecutorService sendJVMInfoToLocalAgentExecutor = Executors.newScheduledThreadPool(1, new LogCollectorThreadFactory("LogCollector-SentJVMInfoToLocalAgent"));
+    private ScheduledFuture<?> sendJVMInfoToLocalAgentFuture;
 
     private Socket socket;
     private DataOutputStream dataOutputStream;
@@ -53,7 +60,11 @@ public class LogCollector {
 
         // TODO 发送心跳，定时任务
 
+        // 注册JVM RuntimeMBean
+        MBeanRegister.registerMBean(String.format("%s%s:type=%s", MBEAN_PREFIX, appName, "JVMRuntimeInfo"), JVMRuntime.getInstance());
+
         // 发送JVM信息到LocalAgent
+        sendJVMInfoToLocalAgentFuture = sendJVMInfoToLocalAgentExecutor.scheduleAtFixedRate(new SendJVMInfoToLocalAgentThread(), 0, 60, TimeUnit.SECONDS);
     }
 
     public static String getAppName() {
@@ -110,6 +121,15 @@ public class LogCollector {
 
         if (connectToLocalAgentExecutor != null) {
             connectToLocalAgentExecutor.shutdown();
+        }
+    }
+
+    private class SendJVMInfoToLocalAgentThread implements Runnable {
+
+        @Override
+        public void run() {
+            JVMRuntime jvmRuntime = JVMRuntime.getInstance();
+            System.out.println("sent jvm info: " + jvmRuntime.getBootClassPath());
         }
     }
 }
