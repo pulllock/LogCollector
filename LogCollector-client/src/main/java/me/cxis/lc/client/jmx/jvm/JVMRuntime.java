@@ -5,9 +5,9 @@ import java.lang.management.RuntimeMXBean;
 
 public class JVMRuntime implements JVMRuntimeMBean {
 
-    private static JVMRuntime instance;
+    private static final JVMRuntime instance;
 
-    private RuntimeMXBean runtimeMXBean;
+    private final RuntimeMXBean runtimeMXBean;
 
     static {
         instance = new JVMRuntime();

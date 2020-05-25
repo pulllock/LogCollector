@@ -9,8 +9,5 @@ public class LogCollectorTest {
         LogCollector logCollector = LogCollector.newLogCollector();
         logCollector.setAppName("test-app-name");
         logCollector.start();
-        Thread.sleep(1000);
-
-        while (true){}
     }
 }

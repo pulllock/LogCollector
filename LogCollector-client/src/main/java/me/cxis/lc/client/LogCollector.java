@@ -1,8 +1,12 @@
 package me.cxis.lc.client;
 
+import com.alibaba.fastjson.JSON;
 import me.cxis.lc.client.jmx.MBeanRegister;
 import me.cxis.lc.client.jmx.jvm.JVMRuntime;
 import me.cxis.lc.client.thread.LogCollectorThreadFactory;
+import me.cxis.lc.common.enums.MessageType;
+import me.cxis.lc.common.enums.ReqResType;
+import me.cxis.lc.common.protocol.model.JVMRuntimeInfo;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,9 +18,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-import static me.cxis.lc.client.constants.Constants.LOCAL_AGENT_HOST;
-import static me.cxis.lc.client.constants.Constants.LOCAL_AGENT_PORT;
+import static me.cxis.lc.common.constants.Constants.LOCAL_AGENT_HOST;
+import static me.cxis.lc.common.constants.Constants.LOCAL_AGENT_PORT;
 
 public class LogCollector {
 
@@ -36,6 +42,8 @@ public class LogCollector {
 
     private Socket socket;
     private DataOutputStream dataOutputStream;
+
+    private Lock sendLock = new ReentrantLock();
 
     static {
         logCollector = new LogCollector();
@@ -64,7 +72,7 @@ public class LogCollector {
         MBeanRegister.registerMBean(String.format("%s%s:type=%s", MBEAN_PREFIX, appName, "JVMRuntimeInfo"), JVMRuntime.getInstance());
 
         // 发送JVM信息到LocalAgent
-        sendJVMInfoToLocalAgentFuture = sendJVMInfoToLocalAgentExecutor.scheduleAtFixedRate(new SendJVMInfoToLocalAgentThread(), 0, 60, TimeUnit.SECONDS);
+        sendJVMInfoToLocalAgentFuture = sendJVMInfoToLocalAgentExecutor.scheduleAtFixedRate(new SendJVMInfoToLocalAgentThread(), 0, 10, TimeUnit.SECONDS);
     }
 
     public static String getAppName() {
@@ -89,13 +97,9 @@ public class LogCollector {
                 socket = new Socket(LOCAL_AGENT_HOST, LOCAL_AGENT_PORT);
                 dataOutputStream = new DataOutputStream(socket.getOutputStream());
                 // 发送hello信息给LocalAgent
-                dataOutputStream.writeByte(0);
-                dataOutputStream.writeByte(1);
-                byte[] data = appName.getBytes(StandardCharsets.UTF_8);
-                dataOutputStream.writeInt(data.length);
-                dataOutputStream.write(data);
-                dataOutputStream.flush();
+                sendMessageToLocalAgent(0, 1, appName);
             } catch (Exception e) {
+                e.printStackTrace();
                 LOGGER.error("Connect to local agent error, cause: ", e);
                 try {
                     if (socket != null) {
@@ -108,6 +112,7 @@ public class LogCollector {
                         dataOutputStream = null;
                     }
                 } catch (Exception e1) {
+                    e1.printStackTrace();
                     LOGGER.error("Connect to local agent error, cause: ", e1);
                 }
             }
@@ -129,7 +134,49 @@ public class LogCollector {
         @Override
         public void run() {
             JVMRuntime jvmRuntime = JVMRuntime.getInstance();
-            System.out.println("sent jvm info: " + jvmRuntime.getBootClassPath());
+
+            JVMRuntimeInfo runtimeInfo = new JVMRuntimeInfo();
+            runtimeInfo.setBootClassPath(jvmRuntime.getBootClassPath());
+            runtimeInfo.setBootClassPathSupported(jvmRuntime.isBootClassPathSupported());
+            runtimeInfo.setClassPath(jvmRuntime.getClassPath());
+            runtimeInfo.setInputArguments(jvmRuntime.getInputArguments());
+            runtimeInfo.setLibraryPath(jvmRuntime.getLibraryPath());
+            runtimeInfo.setName(jvmRuntime.getName());
+            runtimeInfo.setSpecName(jvmRuntime.getSpecName());
+            runtimeInfo.setManagementSpecVersion(jvmRuntime.getManagementSpecVersion());
+            runtimeInfo.setSpecVendor(jvmRuntime.getSpecVendor());
+            runtimeInfo.setStartTime(jvmRuntime.getStartTime());
+            runtimeInfo.setUptime(jvmRuntime.getUptime());
+            runtimeInfo.setSystemProperties(jvmRuntime.getSystemProperties());
+            runtimeInfo.setVmName(jvmRuntime.getVmName());
+            runtimeInfo.setVmVendor(jvmRuntime.getVmVendor());
+            runtimeInfo.setSpecVersion(jvmRuntime.getSpecVersion());
+
+            sendMessageToLocalAgent(0, 4, JSON.toJSONString(runtimeInfo));
+        }
+    }
+
+    private void sendMessageToLocalAgent(int reqResType, int messageType, String message) {
+        sendLock.lock();
+        try {
+            if (StringUtils.isEmpty(message)) {
+                return;
+            }
+
+            if (dataOutputStream == null) {
+                return;
+            }
+
+            dataOutputStream.writeByte(reqResType);
+            dataOutputStream.writeByte(messageType);
+            byte[] data = message.getBytes(StandardCharsets.UTF_8);
+            dataOutputStream.writeInt(data.length);
+            dataOutputStream.write(data);
+            dataOutputStream.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            sendLock.unlock();
         }
     }
 }

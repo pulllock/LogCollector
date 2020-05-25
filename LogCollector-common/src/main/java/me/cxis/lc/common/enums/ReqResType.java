@@ -1,20 +1,18 @@
-package me.cxis.lc.agent.enums;
+package me.cxis.lc.common.enums;
 
-public enum MessageType {
+public enum ReqResType {
 
-    CONNECT    (1, "连接"),
-    HEART_BEAT (2, "心跳"),
-    LOG        (3, "日志"),
-    JVM        (4, "JVM数据")
+    REQ    (0, "REQ"),
+    RES    (1, "RES")
     ;
 
-    MessageType(int type, String desc) {
+    ReqResType(int type, String desc) {
         this.type = type;
         this.desc = desc;
     }
 
-    public static MessageType of(int type) {
-        for (MessageType value : MessageType.values()) {
+    public static ReqResType of(int type) {
+        for (ReqResType value : ReqResType.values()) {
             if (type == value.type) {
                 return value;
             }
