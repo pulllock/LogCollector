@@ -1,4 +1,4 @@
-package me.cxis.lc.agent.constants;
+package me.cxis.lc.common.constants;
 
 public interface Constants {
 

@@ -1,4 +1,4 @@
-package me.cxis.lc.agent.model;
+package me.cxis.lc.common.protocol;
 
 public class Message {
 
